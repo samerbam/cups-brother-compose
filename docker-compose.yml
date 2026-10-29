@@ -1,7 +1,9 @@
 version: "3"
 services:
     cups:
-        image: anujdatar/cups
+        build:
+            context: .
+            dockerfile: Dockerfile
         container_name: cups
         restart: unless-stopped
         ports:
