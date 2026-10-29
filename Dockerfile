@@ -1,4 +1,4 @@
-FROM debian:stable-slim
+FROM debian:trixie-slim
 
 # Runtime settings are supplied by Compose or docker run.
 LABEL org.opencontainers.image.source="https://github.com/felix-ciomp/cups-brother/"
@@ -17,6 +17,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     apt-utils \
     tzdata \
     usbutils \
+    procps \
     cups \
     cups-filters \
     printer-driver-all \
@@ -34,14 +35,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 EXPOSE 631
 EXPOSE 5353/udp
 
-# Baked-in config file changes
-RUN sed -i 's/Listen localhost:631/Listen 0.0.0.0:631/' /etc/cups/cupsd.conf && \
-    sed -i 's/Browsing Off/Browsing On/' /etc/cups/cupsd.conf && \
-    sed -i 's/<Location \/>/<Location \/>\n  Allow All/' /etc/cups/cupsd.conf && \
-    sed -i 's/<Location \/admin>/<Location \/admin>\n  Allow All\n  Require user @SYSTEM/' /etc/cups/cupsd.conf && \
-    sed -i 's/<Location \/admin\/conf>/<Location \/admin\/conf>\n  Allow All/' /etc/cups/cupsd.conf && \
-    echo "ServerAlias *" >> /etc/cups/cupsd.conf && \
-    echo "DefaultEncryption Never" >> /etc/cups/cupsd.conf
+# Use CUPS itself to generate remote administration and sharing settings.
+# Keep the distribution's authentication and encryption defaults.
+RUN /usr/sbin/cupsd \
+    && cupsctl --remote-admin --remote-any --share-printers \
+    && /etc/init.d/cups stop \
+    && printf '\nServerAlias *\n' >> /etc/cups/cupsd.conf \
+    && /usr/sbin/cupsd -t
 
 # back up cups configs in case used does not add their own
 RUN cp -rp /etc/cups /etc/cups-bak
@@ -50,4 +50,5 @@ VOLUME [ "/etc/cups" ]
 COPY entrypoint.sh /
 RUN chmod +x /entrypoint.sh
 
-CMD ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/sbin/cupsd", "-f"]

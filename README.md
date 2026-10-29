@@ -44,8 +44,29 @@ Changing the model does not remove old queues or drivers.
 
 For direct `docker run` usage, supply `CUPSADMIN`, `CUPSPASSWORD`, and `TZ`
 explicitly, and optionally `CUPSBRPRINTER`. The image contains no default password.
-The CUPS configuration enables remote access and disables transport encryption;
-use the bind address to limit exposure as appropriate for your network.
+The CUPS configuration enables remote administration and printer sharing using
+`cupsctl`, preserving Debian's default password authentication and encryption
+settings. Use `https://<server-address>:<CUPS_PORT>/admin/` for administration.
+CUPS may present a self-signed certificate on your local network.
+
+### Updating an existing installation in Dockhand
+
+Pull the latest Git revision, rebuild the image, and recreate the container.
+Restarting an existing container does not apply image changes. Keep the existing
+`CONFIG_PATH` and environment variables.
+
+On its first startup with this version, the container saves the existing
+`cupsd.conf` and `cups-files.conf` in a private `.before-config-v2.*` directory
+inside `CONFIG_PATH`, then installs the new daemon settings. Existing printer
+queues, PPDs, and TLS certificates remain in place. Custom daemon settings must
+be reapplied after migration. The `.container-config-v2` marker prevents subsequent
+starts from replacing your settings again.
+
+The entrypoint completes Brother installation, stops its temporary background
+CUPS service, checks that no scheduler remains, and then executes `cupsd -f`.
+If cleanup fails, startup fails rather than launching a second scheduler.
+For direct `docker run` usage, the default command is already provided; commands
+passed after the image name replace it.
 
 ## Server Administration
 You should now be able to access CUPS admin server using the IP address of your headless computer/server http://192.168.xxx.xxx:631, or whatever. If your server has avahi-daemon/mdns running you can use the hostname, http://printer.local:631. (IP and hostname will vary, these are just examples)
@@ -54,3 +75,5 @@ If you are running this on your PC, i.e. not on a headless server, you should be
 
 ## Thanks
 Based on the work done by **RagingTiger**: [https://github.com/RagingTiger/cups-airprint](https://github.com/RagingTiger/cups-airprint)
+
+Startup and configuration structure informed by [ydkn/docker-cups](https://gitlab.com/ydkn/docker-cups/).

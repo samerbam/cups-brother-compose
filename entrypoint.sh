@@ -25,9 +25,29 @@ printf '%s:%s\n' "$CUPSADMIN" "$CUPSPASSWORD" | chpasswd
 ln -fs "/usr/share/zoneinfo/$TZ" /etc/localtime
 printf '%s\n' "$TZ" > /etc/timezone
 
-# Restore defaults only when the mounted configuration is uninitialized.
-if [[ ! -f /etc/cups/cupsd.conf ]]; then
-    cp -rpn /etc/cups-bak/. /etc/cups/
+# Migrate daemon settings once, including existing bind-mounted configurations.
+# Printer queues, PPDs, certificates, and other persistent files stay in place.
+config_version=/etc/cups/.container-config-v2
+if [[ ! -f "$config_version" ]]; then
+    if [[ -f /etc/cups/cupsd.conf ]]; then
+        backup_dir=$(mktemp -d /etc/cups/.before-config-v2.XXXXXX)
+        for config in cupsd.conf cups-files.conf; do
+            if [[ -f "/etc/cups/$config" ]]; then
+                cp -p "/etc/cups/$config" "$backup_dir/"
+            fi
+        done
+        echo "Previous CUPS daemon settings saved in $backup_dir"
+    else
+        for default in /etc/cups-bak/*; do
+            if [[ ! -e "/etc/cups/${default##*/}" ]]; then
+                cp -rp "$default" /etc/cups/
+            fi
+        done
+    fi
+    cp -p /etc/cups-bak/cupsd.conf /etc/cups/cupsd.conf
+    cp -p /etc/cups-bak/cups-files.conf /etc/cups/cups-files.conf
+    /usr/sbin/cupsd -t
+    touch "$config_version"
 fi
 
 # An explicitly empty model disables the Brother installer.
@@ -39,5 +59,11 @@ fi
 # Stop it before launching the container's scheduler so TCP and the Unix socket
 # use the same process and the same local authentication certificates.
 /etc/init.d/cups stop
+# Fail rather than serve TCP and the Unix socket from different schedulers.
+if pgrep -x cupsd >/dev/null; then
+    echo "A CUPS scheduler is still running after setup; refusing to start a second one" >&2
+    exit 1
+fi
+/usr/sbin/cupsd -t
 
-exec /usr/sbin/cupsd -f
+exec "$@"
