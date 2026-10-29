@@ -25,7 +25,7 @@ configuration directory are excluded from Git and the Docker build context.
 | `CUPS_ADMIN_USER` | `admin` | CUPS administrator (`CUPSADMIN` inside the container) |
 | `CUPS_PASSWORD` | Required | Administrator password (`CUPSPASSWORD`) |
 | `TIMEZONE` | `Etc/UTC` | Installed IANA timezone name (`TZ`) |
-| `CUPS_BR_PRINTER` | `DCP-T300` | Brother model (`CUPSBRPRINTER`); set empty to skip the installer |
+| `CUPS_BR_PRINTER` | Empty | Brother model (`CUPSBRPRINTER`); installer runs only when a model is specified |
 | `CONFIG_PATH` | `./config` | Persistent CUPS configuration directory |
 | `CUPS_BIND_ADDRESS` | `0.0.0.0` | Host address for the published web/IPP port |
 | `CUPS_PORT` | `631` | Host port; container continues listening on 631 |
