@@ -1,23 +1,38 @@
-#!/bin/bash -ex
+#!/bin/bash
+set -euo pipefail
 
-if [ $(grep -ci $CUPSADMIN /etc/shadow) -eq 0 ]; then
-    useradd -r -G lpadmin -M $CUPSADMIN
+: "${CUPSADMIN:?Set CUPSADMIN}"
+: "${CUPSPASSWORD:?Set CUPSPASSWORD}"
+: "${TZ:?Set TZ}"
 
-    # add password
-    echo $CUPSADMIN:$CUPSPASSWORD | chpasswd
-
-    # add tzdata
-    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime
-    dpkg-reconfigure --frontend noninteractive tzdata
+# chpasswd uses colon-delimited records; reject extra records or fields.
+if [[ "$CUPSADMIN" == *:* || "$CUPSADMIN" == *$'\n'* ||
+      "$CUPSPASSWORD" == *$'\n'* ]]; then
+    echo "Admin credentials must not contain newlines or a colon in the username" >&2
+    exit 1
+fi
+if [[ "$TZ" == /* || "$TZ" == *..* || ! -f "/usr/share/zoneinfo/$TZ" ]]; then
+    echo "Invalid timezone: $TZ" >&2
+    exit 1
 fi
 
-# restore default cups config in case user does not have any
-if [ ! -f /etc/cups/cupsd.conf ]; then
-    cp -rpn /etc/cups-bak/* /etc/cups/
+if ! id -u "$CUPSADMIN" >/dev/null 2>&1; then
+    useradd -r -G lpadmin -M "$CUPSADMIN"
+fi
+usermod -aG lpadmin "$CUPSADMIN"
+# Apply changes on every start, without logging the password.
+printf '%s:%s\n' "$CUPSADMIN" "$CUPSPASSWORD" | chpasswd
+ln -fs "/usr/share/zoneinfo/$TZ" /etc/localtime
+printf '%s\n' "$TZ" > /etc/timezone
+
+# Restore defaults only when the mounted configuration is uninitialized.
+if [[ ! -f /etc/cups/cupsd.conf ]]; then
+    cp -rpn /etc/cups-bak/. /etc/cups/
 fi
 
-if [ $CUPSBRPRINTER !="" ]; then
-    printf 'y\ny\ny\ny\nn\nn\nn\n' | bash /root/linux-brprinter-installer-2.2.4-1 $CUPSBRPRINTER
+# An explicitly empty model disables the Brother installer.
+if [[ -n "${CUPSBRPRINTER:-}" ]]; then
+    printf 'y\ny\ny\ny\nn\nn\nn\n' | bash /root/linux-brprinter-installer-2.2.4-1 "$CUPSBRPRINTER"
 fi
 
 exec /usr/sbin/cupsd -f

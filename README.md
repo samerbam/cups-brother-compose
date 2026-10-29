@@ -7,59 +7,43 @@ Container packages available from Docker Hub and Github Container Registry (ghcr
   - GHCR Image: `ghcr.io/anujdatar/cups`
 
 ## Usage
-Quick start with default parameters
+
+Build and run this repository on a Linux host with access to the printer's USB bus:
+
 ```sh
-docker run -d -p 631:631 --device /dev/bus/usb --name cups anujdatar/cups
+cp .env.example .env
+# Edit .env, particularly CUPS_PASSWORD, TIMEZONE, and CUPS_BR_PRINTER.
+docker compose up -d --build
 ```
 
-Customizing your container
-```sh
-docker run -d --name cups \
-    --restart unless-stopped \
-    -p 631:631 \
-    --device /dev/bus/usb \
-    -e CUPSADMIN=batman \
-    -e CUPSPASSWORD=batcave_password \
-    -e TZ="America/Gotham" \
-    -v <persistent-config-folder>:/etc/cups \
-    anujdatar/cups
-```
-> Note: :P make sure you use valid TZ string, this is just a joke. Also changing the default username and password is highly recommended.
+Compose builds the local Dockerfile. All deployment settings live in `.env`
+and are passed at runtime; no build arguments are needed. `.env` and the default
+configuration directory are excluded from Git and the Docker build context.
 
-### Parameters and defaults
-- `port` -> default cups network port `631:631`. Change not recommended unless you know what you're doing
-- `device` -> used to give docker access to USB printer. Default passes the whole USB bus `/dev/bus/usb`, in case you change the USB port on your device later. change to specific USB port if it will always be fixed, for eg. `/dev/bus/usb/001/005`.
+| Compose variable | Default | Purpose |
+| --- | --- | --- |
+| `CUPS_ADMIN_USER` | `admin` | CUPS administrator (`CUPSADMIN` inside the container) |
+| `CUPS_PASSWORD` | Required | Administrator password (`CUPSPASSWORD`) |
+| `TIMEZONE` | `Etc/UTC` | Installed IANA timezone name (`TZ`) |
+| `CUPS_BR_PRINTER` | `DCP-T300` | Brother model (`CUPSBRPRINTER`); set empty to skip the installer |
+| `CONFIG_PATH` | `./config` | Persistent CUPS configuration directory |
+| `CUPS_BIND_ADDRESS` | `0.0.0.0` | Host address for the published web/IPP port |
+| `CUPS_PORT` | `631` | Host port; container continues listening on 631 |
+| `CUPS_USB_PATH` | `/dev/bus/usb` | Host USB path mounted at `/dev/bus/usb` |
+| `CUPS_CONTAINER_NAME` | `cups` | Container name |
+| `CUPS_RESTART_POLICY` | `unless-stopped` | Container restart policy |
 
-#### Optional parameters
-- `name` -> whatever you want to call your docker image. using `cups` in the example above.
-- `volume` -> adds a persistent volume for CUPS config files if you need to migrate or start a new container with the same settings
+After editing `.env`, run `docker compose up -d` to recreate the container with
+the new settings. Credentials and timezone are applied on each startup. Changing
+the admin name creates a new administrator; it does not remove the old account
+from an existing container. Recreating the container starts with fresh accounts.
+The Brother installer runs on each startup when a model is set and may require
+network access. Changing the model does not remove old queues or drivers.
 
-Environment variables that can be changed to suit your needs, use the `-e` tag
-| # | Parameter    | Default            | Type   | Description                       |
-| - | ------------ | ------------------ | ------ | --------------------------------- |
-| 1 | TZ           | "America/New_York" | string | Time zone of your server          |
-| 2 | CUPSADMIN    | admin              | string | Name of the admin user for server |
-| 3 | CUPSPASSWORD | password           | string | Password for server admin         |
-
-### docker-compose
-```yaml
-version: "3"
-services:
-    cups:
-        image: anujdatar/cups
-        container_name: cups
-        restart: unless-stopped
-        ports:
-            - "631:631"
-        devices:
-            - /dev/bus/usb:/dev/bus/usb
-        environment:
-            - CUPSADMIN=batman
-            - CUPSPASSWORD=batcave_password
-            - TZ="America/Gotham"
-        volumes:
-            - <persistent-config-path>:/etc/cups
-```
+For direct `docker run` usage, supply `CUPSADMIN`, `CUPSPASSWORD`, and `TZ`
+explicitly, and optionally `CUPSBRPRINTER`. The image contains no default password.
+The CUPS configuration enables remote access and disables transport encryption;
+use the bind address to limit exposure as appropriate for your network.
 
 ## Server Administration
 You should now be able to access CUPS admin server using the IP address of your headless computer/server http://192.168.xxx.xxx:631, or whatever. If your server has avahi-daemon/mdns running you can use the hostname, http://printer.local:631. (IP and hostname will vary, these are just examples)

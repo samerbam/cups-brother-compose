@@ -1,13 +1,6 @@
 FROM debian:stable-slim
 
-# ENV variables
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ="Asia/ShangHai"
-ENV CUPSADMIN=admin
-ENV CUPSPASSWORD=password
-# default brother printer
-ENV CUPSBRPRINTER=DCP-T300
-
+# Runtime settings are supplied by Compose or docker run.
 LABEL org.opencontainers.image.source="https://github.com/felix-ciomp/cups-brother/"
 LABEL org.opencontainers.image.description="CUPS Printer Server with Brother Linux driver"
 LABEL org.opencontainers.image.author="Felix <felixw@163.com>"
@@ -18,9 +11,11 @@ LABEL org.opencontainers.image.licenses=MIT
 COPY linux-brprinter-installer-2.2.4-1 /root/linux-brprinter-installer-2.2.4-1
 
 # Install dependencies
-RUN apt-get update -qq  && apt-get upgrade -qqy \
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update -qq  && apt-get upgrade -qqy \
     && apt-get install -qqy \
     apt-utils \
+    tzdata \
     usbutils \
     cups \
     cups-filters \
