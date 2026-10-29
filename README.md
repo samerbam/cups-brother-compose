@@ -22,6 +22,8 @@ configuration directory are excluded from Git and the Docker build context.
 
 | Compose variable | Default | Purpose |
 | --- | --- | --- |
+| `CUPS_HOSTNAME` | `cups` | Container hostname, also used by Avahi for its `.local` name |
+| `CUPS_ENABLE_AVAHI` | `true` | Start the container system bus and Bonjour advertiser; set `false` to disable |
 | `CUPS_ADMIN_USER` | `admin` | CUPS administrator (`CUPSADMIN` inside the container) |
 | `CUPS_PASSWORD` | Required | Administrator password (`CUPSPASSWORD`) |
 | `TIMEZONE` | `Etc/UTC` | Installed IANA timezone name (`TZ`) |
@@ -48,6 +50,45 @@ The CUPS configuration enables remote administration and printer sharing using
 `cupsctl`, preserving Debian's default password authentication and encryption
 settings. Use `https://<server-address>:<CUPS_PORT>/admin/` for administration.
 CUPS may present a self-signed certificate on your local network.
+
+### AirPrint / Bonjour discovery on your LAN
+
+The image starts D-Bus and Avahi before its final CUPS server. CUPS registers
+shared queues with Avahi, supplying each queue's description and IPP capabilities.
+There is no manually maintained AirPrint service file. This enables discovery;
+actual AirPrint printing still depends on the driver and document formats the
+queue supports.
+
+For a Linux Docker host such as HexOS/TrueNAS, use the standalone
+`docker-compose.airprint.yml` file **instead of** `docker-compose.yml`:
+
+```sh
+docker compose -f docker-compose.airprint.yml up -d --build
+```
+
+In Dockhand, set the repository's Compose file path to
+`docker-compose.airprint.yml`, pull the latest revision, rebuild, and recreate.
+Keep your current `CONFIG_PATH` and runtime variables. Do not deploy both Compose
+files as separate stacks or combine them as overrides.
+
+This file uses host networking so multicast discovery reaches your LAN. It does
+not publish ports: CUPS listens directly on host TCP port 631, and Avahi uses UDP
+5353. `CUPS_PORT` and `CUPS_BIND_ADDRESS` apply only to the original bridge-mode
+file. Check that host TCP 631 is free before switching. Other host mDNS responders
+can coexist when they also permit shared multicast sockets; if Avahi reports a
+conflict, inspect the host's mDNS setup rather than disabling system services.
+Host networking also allows CUPS to listen on all host interfaces; use the host
+firewall to restrict access to your intended LAN.
+
+The original `docker-compose.yml` retains bridge networking and configurable
+published ports. Avahi can run there, but ordinary port publishing alone does not
+make its multicast announcements available on your LAN.
+
+After deploying, confirm the printer is shared in the CUPS administration page.
+On a Mac on the same network, `dns-sd -Z _ipp._tcp local.` should list a record
+whose `rp` field is `printers/HL3170CDW` (or your actual queue name). The advertised
+hostname must resolve to your NAS's reachable LAN address. The printer description
+can be changed using CUPS's Modify Printer page.
 
 ### Updating an existing installation in Dockhand
 

@@ -1,0 +1,21 @@
+services:
+    cups:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        hostname: ${CUPS_HOSTNAME:-cups}
+        container_name: ${CUPS_CONTAINER_NAME:-cups}
+        restart: ${CUPS_RESTART_POLICY:-unless-stopped}
+        # Standalone Compose file: use instead of docker-compose.yml.
+        # mDNS must reach the LAN, and TCP 631 must be free on the host.
+        network_mode: host
+        devices:
+            - "${CUPS_USB_PATH:-/dev/bus/usb}:/dev/bus/usb"
+        environment:
+            CUPS_ENABLE_AVAHI: ${CUPS_ENABLE_AVAHI:-true}
+            CUPSADMIN: ${CUPS_ADMIN_USER:-admin}
+            CUPSPASSWORD: ${CUPS_PASSWORD:?Set CUPS_PASSWORD in .env}
+            TZ: ${TIMEZONE:-Etc/UTC}
+            CUPSBRPRINTER: ${CUPS_BR_PRINTER:-}
+        volumes:
+            - "${CONFIG_PATH:-./config}:/etc/cups"

@@ -66,4 +66,26 @@ if pgrep -x cupsd >/dev/null; then
 fi
 /usr/sbin/cupsd -t
 
+# CUPS uses Avahi over the system bus to publish its shared queues. No static
+# printer service file is needed: CUPS supplies the name, URI, and capabilities.
+if [[ "${CUPS_ENABLE_AVAHI:-true}" == "true" ]]; then
+    mkdir -p /run/dbus /run/avahi-daemon
+    dbus-uuidgen --ensure
+    if ! dbus-send --system --type=method_call --print-reply \
+        --dest=org.freedesktop.DBus /org/freedesktop/DBus \
+        org.freedesktop.DBus.ListNames >/dev/null 2>&1; then
+        # These runtime files can survive a container stop/start without a bus.
+        rm -f /run/dbus/pid /run/dbus/system_bus_socket
+        dbus-daemon --system --fork
+    fi
+    if ! avahi-daemon --check; then
+        rm -f /run/avahi-daemon/pid
+        avahi-daemon --daemonize --no-chroot --no-rlimits
+    fi
+    dbus-send --system --type=method_call --print-reply \
+        --dest=org.freedesktop.Avahi / \
+        org.freedesktop.Avahi.Server.GetState >/dev/null
+    echo "Bonjour discovery enabled; CUPS will advertise shared printer queues"
+fi
+
 exec "$@"

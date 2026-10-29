@@ -28,7 +28,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     hpijs-ppds \
     hp-ppd \
     hplip \
+    dbus \
     avahi-daemon \
+    avahi-utils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -47,6 +49,7 @@ RUN /usr/sbin/cupsd \
 RUN cp -rp /etc/cups /etc/cups-bak
 VOLUME [ "/etc/cups" ]
 
+COPY avahi-daemon.conf /etc/avahi/avahi-daemon.conf
 COPY entrypoint.sh /
 RUN chmod +x /entrypoint.sh
 
