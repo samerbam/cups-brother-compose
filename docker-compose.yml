@@ -1,0 +1,16 @@
+version: "3"
+services:
+    cups:
+        image: anujdatar/cups
+        container_name: cups
+        restart: unless-stopped
+        ports:
+            - "631:631"
+        devices:
+            - /dev/bus/usb:/dev/bus/usb
+        environment:
+            - CUPSADMIN=${CUPS_ADMIN_USER}
+            - CUPSPASSWORD=${CUPS_PASSWORD}
+            - TZ=${TIMEZONE}
+        volumes:
+            - ${CONFIG_PATH}:/etc/cups
