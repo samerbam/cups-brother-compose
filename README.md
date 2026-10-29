@@ -38,7 +38,9 @@ the new settings. Credentials and timezone are applied on each startup. Changing
 the admin name creates a new administrator; it does not remove the old account
 from an existing container. Recreating the container starts with fresh accounts.
 The Brother installer runs on each startup when a model is set and may require
-network access. Changing the model does not remove old queues or drivers.
+network access. Its background CUPS service is stopped before the container starts
+its foreground server, keeping web and local authentication in the same process.
+Changing the model does not remove old queues or drivers.
 
 For direct `docker run` usage, supply `CUPSADMIN`, `CUPSPASSWORD`, and `TZ`
 explicitly, and optionally `CUPSBRPRINTER`. The image contains no default password.

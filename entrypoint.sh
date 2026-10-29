@@ -35,4 +35,9 @@ if [[ -n "${CUPSBRPRINTER:-}" ]]; then
     printf 'y\ny\ny\ny\nn\nn\nn\n' | bash /root/linux-brprinter-installer-2.2.4-1 "$CUPSBRPRINTER"
 fi
 
+# The Brother installer (and its packages) can start a background scheduler.
+# Stop it before launching the container's scheduler so TCP and the Unix socket
+# use the same process and the same local authentication certificates.
+/etc/init.d/cups stop
+
 exec /usr/sbin/cupsd -f
